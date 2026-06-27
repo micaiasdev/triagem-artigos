@@ -14,11 +14,11 @@ export default function ArticleCard({ article }: { article: Article }) {
   const dHref = doiHref(article.doi);
   return (
     <article className="flex h-full flex-col">
-      <h2 className="text-xl font-bold leading-snug text-slate-900">
+      <h2 className="text-xl font-bold leading-snug text-slate-900 dark:text-slate-50">
         {article.title}
       </h2>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
         {article.authors && (
           <span className="line-clamp-1">{article.authors}</span>
         )}
@@ -27,7 +27,7 @@ export default function ArticleCard({ article }: { article: Article }) {
             href={dHref}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-sky-700 hover:underline"
+            className="inline-flex items-center gap-1 text-sky-700 hover:underline dark:text-sky-400"
           >
             DOI <ExternalLink className="h-3.5 w-3.5" />
           </a>
@@ -37,7 +37,7 @@ export default function ArticleCard({ article }: { article: Article }) {
             href={article.url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-sky-700 hover:underline"
+            className="inline-flex items-center gap-1 text-sky-700 hover:underline dark:text-sky-400"
           >
             Link <ExternalLink className="h-3.5 w-3.5" />
           </a>
@@ -53,7 +53,7 @@ export default function ArticleCard({ article }: { article: Article }) {
             .map((k, i) => (
               <span
                 key={i}
-                className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600"
+                className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300"
               >
                 {k}
               </span>
@@ -61,11 +61,11 @@ export default function ArticleCard({ article }: { article: Article }) {
         </div>
       )}
 
-      <div className="mt-4 flex-1 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-[15px] leading-relaxed text-slate-800">
+      <div className="mt-4 flex-1 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-[15px] leading-relaxed text-slate-800 dark:border-slate-800 dark:bg-slate-800/40 dark:text-slate-200">
         {article.abstract ? (
           <p className="whitespace-pre-wrap">{article.abstract}</p>
         ) : (
-          <p className="italic text-slate-400">(sem abstract)</p>
+          <p className="italic text-slate-400 dark:text-slate-500">(sem abstract)</p>
         )}
       </div>
     </article>

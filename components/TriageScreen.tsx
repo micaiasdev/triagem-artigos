@@ -15,6 +15,7 @@ import ArticleCard from "./ArticleCard";
 import ArticleList, { type Filter } from "./ArticleList";
 import CriteriaPicker from "./CriteriaPicker";
 import DecisionBar from "./DecisionBar";
+import ThemeToggle from "./ThemeToggle";
 
 export default function TriageScreen({ initialState }: { initialState: AppState }) {
   const router = useRouter();
@@ -185,62 +186,69 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
   }, [router]);
 
   if (!current) {
-    return <div className="p-8 text-slate-500">Nenhum artigo carregado.</div>;
+    return (
+      <div className="p-8 text-slate-500 dark:text-slate-400">
+        Nenhum artigo carregado.
+      </div>
+    );
   }
 
   return (
     <div className="flex h-screen flex-col">
       {/* Header */}
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-200 bg-white px-5 py-3">
-        <h1 className="text-lg font-bold text-slate-900">Triagem de Artigos</h1>
+      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-200 bg-white px-5 py-3 dark:border-slate-800 dark:bg-slate-900">
+        <h1 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+          Triagem de Artigos
+        </h1>
 
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-slate-500">
+          <span className="text-slate-500 dark:text-slate-400">
             {classified}/{counts.total} classificados ({progress}%)
           </span>
-          <span className="inline-flex items-center gap-1 text-emerald-700">
+          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
             {counts.included}
           </span>
-          <span className="inline-flex items-center gap-1 text-rose-700">
+          <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-400">
             <span className="h-2 w-2 rounded-full bg-rose-500" />
             {counts.excluded}
           </span>
-          <span className="inline-flex items-center gap-1 text-slate-500">
-            <span className="h-2 w-2 rounded-full bg-slate-300" />
+          <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400">
+            <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" />
             {counts.pending}
           </span>
         </div>
 
         <div className="ml-auto flex items-center gap-2">
           {saving && (
-            <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+            <span className="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> salvando…
             </span>
           )}
           <a
             href="/api/export?format=xlsx"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             <FileDown className="h-4 w-4" /> XLSX
           </a>
           <a
             href="/api/export?format=csv"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             <FileDown className="h-4 w-4" /> CSV
           </a>
           <button
             onClick={reimportar}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-700"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-rose-950/50 dark:hover:text-rose-300"
           >
             <RotateCcw className="h-4 w-4" /> Reimportar
           </button>
+          <ThemeToggle />
         </div>
 
-        <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
           <div
-            className="h-full bg-slate-900 transition-all"
+            className="h-full bg-slate-900 transition-all dark:bg-slate-100"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -249,7 +257,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
       {/* Corpo */}
       <div className="flex min-h-0 flex-1">
         {/* Sidebar */}
-        <aside className="hidden w-80 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
+        <aside className="hidden w-80 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col dark:border-slate-800 dark:bg-slate-900">
           <ArticleList
             items={filtered}
             currentId={current.id}
@@ -264,52 +272,52 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
         {/* Painel principal */}
         <main className="flex min-w-0 flex-1 flex-col">
           {/* Navegação */}
-          <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-5 py-2">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-5 py-2 dark:border-slate-800 dark:bg-slate-900">
             <button
               onClick={prev}
               disabled={index === 0}
-              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <ChevronLeft className="h-4 w-4" /> Anterior
             </button>
-            <span className="text-sm font-medium text-slate-500">
+            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
               Artigo {index + 1} de {counts.total}
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={nextPending}
-                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 <SkipForward className="h-4 w-4" /> Próximo pendente
               </button>
               <button
                 onClick={next}
                 disabled={index === counts.total - 1}
-                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Próximo <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          {/* Conteúdo rolável: artigo + decisão + critérios + justificativa */}
+          {/* Conteúdo: artigo + decisão + critérios + justificativa */}
           <div className="grid min-h-0 flex-1 grid-rows-[1fr] gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]">
             {/* Artigo */}
-            <section className="min-h-0 overflow-hidden border-b border-slate-200 p-5 lg:border-b-0 lg:border-r">
+            <section className="min-h-0 overflow-hidden border-b border-slate-200 p-5 lg:border-b-0 lg:border-r dark:border-slate-800">
               <ArticleCard article={current} />
             </section>
 
             {/* Painel de classificação */}
-            <section className="min-h-0 space-y-5 overflow-y-auto bg-white p-5">
+            <section className="min-h-0 space-y-5 overflow-y-auto bg-white p-5 dark:bg-slate-900">
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                   Decisão
                 </h3>
                 <DecisionBar decision={current.decision} onChange={setDecision} />
               </div>
 
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                   {current.decision === "included"
                     ? "Critérios de inclusão aplicáveis"
                     : current.decision === "excluded"
@@ -317,7 +325,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
                       : "Critérios"}
                 </h3>
                 {current.decision === "pending" ? (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
                     Escolha <strong>Incluso</strong> ou <strong>Não incluso</strong>{" "}
                     para marcar os critérios correspondentes.
                   </p>
@@ -334,7 +342,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
               </div>
 
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                   Justificativa (opcional)
                 </h3>
                 <textarea
@@ -342,7 +350,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
                   onChange={(e) => setJustification(e.target.value)}
                   placeholder="Anote o raciocínio da decisão (vira coluna no export, útil para o RAG)…"
                   rows={4}
-                  className="w-full resize-y rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400"
+                  className="w-full resize-y rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-slate-500"
                 />
               </div>
             </section>
