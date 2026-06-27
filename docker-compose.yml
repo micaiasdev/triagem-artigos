@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATA_DIR=/app/data
+    volumes:
+      # Os dados da triagem (state.json) ficam na máquina, em ./data
+      - ./data:/app/data
+    restart: unless-stopped

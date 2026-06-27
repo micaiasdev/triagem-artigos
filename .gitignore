@@ -1,0 +1,25 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next
+/out
+
+# production
+/build
+
+# dados persistidos da triagem (ficam só na máquina)
+/data
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+
+# env
+.env*
+!.env.example
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
