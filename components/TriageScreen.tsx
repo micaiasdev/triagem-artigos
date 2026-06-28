@@ -9,17 +9,25 @@ import {
   Loader2,
   RotateCcw,
   SkipForward,
+  SlidersHorizontal,
 } from "lucide-react";
-import type { AppState, Article, ArticlePatch, Decision } from "@/lib/types";
+import type {
+  AppState,
+  Article,
+  ArticlePatch,
+  Criterion,
+  Decision,
+} from "@/lib/types";
 import ArticleCard from "./ArticleCard";
 import ArticleList, { type Filter } from "./ArticleList";
+import CriteriaManager from "./CriteriaManager";
 import CriteriaPicker from "./CriteriaPicker";
 import DecisionBar from "./DecisionBar";
 import ThemeToggle from "./ThemeToggle";
 
 export default function TriageScreen({ initialState }: { initialState: AppState }) {
   const router = useRouter();
-  const criteria = initialState.criteria;
+  const [criteria, setCriteria] = useState(initialState.criteria);
   const inclusionCriteria = useMemo(
     () => criteria.filter((c) => c.type === "inclusion"),
     [criteria]
@@ -34,6 +42,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [managerOpen, setManagerOpen] = useState(false);
 
   const current = articles[index];
 
@@ -134,9 +143,22 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
         ? exclusionCriteria
         : [];
 
+  const setAllCriteria = useCallback(
+    (select: boolean) => {
+      if (!current) return;
+      const criteriaCodes = select ? visibleCriteria.map((c) => c.code) : [];
+      setArticles((prev) =>
+        prev.map((x) => (x.id === current.id ? { ...x, criteriaCodes } : x))
+      );
+      patch(current.id, { criteriaCodes });
+    },
+    [current, patch, visibleCriteria]
+  );
+
   // -------- atalhos de teclado --------
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (managerOpen) return;
       const el = document.activeElement as HTMLElement | null;
       const typing =
         el &&
@@ -163,7 +185,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, prev, setDecision, toggleCriterion, visibleCriteria]);
+  }, [next, prev, setDecision, toggleCriterion, visibleCriteria, managerOpen]);
 
   // -------- lista filtrada (sidebar) --------
   const filtered = useMemo(() => {
@@ -173,6 +195,25 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
       .filter(({ a }) => (filter === "all" ? true : a.decision === filter))
       .filter(({ a }) => (q === "" ? true : a.title.toLowerCase().includes(q)));
   }, [articles, filter, search]);
+
+  const handleCriteriaChange = useCallback(
+    (next: Criterion[], deletedCode?: string) => {
+      setCriteria(next);
+      if (deletedCode) {
+        setArticles((prev) =>
+          prev.map((a) =>
+            a.criteriaCodes.includes(deletedCode)
+              ? {
+                  ...a,
+                  criteriaCodes: a.criteriaCodes.filter((c) => c !== deletedCode),
+                }
+              : a
+          )
+        );
+      }
+    },
+    []
+  );
 
   const reimportar = useCallback(async () => {
     if (
@@ -237,6 +278,12 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
           >
             <FileDown className="h-4 w-4" /> CSV
           </a>
+          <button
+            onClick={() => setManagerOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          >
+            <SlidersHorizontal className="h-4 w-4" /> Critérios
+          </button>
           <button
             onClick={reimportar}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-rose-950/50 dark:hover:text-rose-300"
@@ -347,6 +394,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
                     criteria={visibleCriteria}
                     selected={current.criteriaCodes}
                     onToggle={toggleCriterion}
+                    onSelectAll={setAllCriteria}
                     kindLabel={
                       current.decision === "included" ? "inclusão" : "exclusão"
                     }
@@ -357,6 +405,14 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
           </div>
         </main>
       </div>
+
+      {managerOpen && (
+        <CriteriaManager
+          criteria={criteria}
+          onClose={() => setManagerOpen(false)}
+          onChange={handleCriteriaChange}
+        />
+      )}
     </div>
   );
 }

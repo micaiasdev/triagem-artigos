@@ -1,18 +1,31 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { Criterion } from "@/lib/types";
 
 export default function CriteriaPicker({
   criteria,
   selected,
   onToggle,
+  onSelectAll,
   kindLabel,
 }: {
   criteria: Criterion[];
   selected: string[];
   onToggle: (code: string) => void;
+  onSelectAll: (select: boolean) => void;
   kindLabel: string;
 }) {
+  const selectedCount = criteria.filter((c) => selected.includes(c.code)).length;
+  const allSelected = criteria.length > 0 && selectedCount === criteria.length;
+  const someSelected = selectedCount > 0 && !allSelected;
+
+  // Estado "indeterminado" só existe via JS (quando alguns, mas não todos, marcados).
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected;
+  }, [someSelected]);
+
   if (criteria.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -23,6 +36,20 @@ export default function CriteriaPicker({
 
   return (
     <div className="flex flex-col gap-2">
+      <label className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/50">
+        <input
+          ref={selectAllRef}
+          type="checkbox"
+          checked={allSelected}
+          onChange={(e) => onSelectAll(e.target.checked)}
+          className="h-4 w-4 cursor-pointer accent-sky-600"
+        />
+        Selecionar todos
+        <span className="ml-auto text-xs font-normal tabular-nums text-slate-400 dark:text-slate-500">
+          {selectedCount}/{criteria.length}
+        </span>
+      </label>
+
       {criteria.map((c, idx) => {
         const active = selected.includes(c.code);
         return (
