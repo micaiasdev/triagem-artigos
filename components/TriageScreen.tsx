@@ -300,7 +300,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
             </div>
           </div>
 
-          {/* Conteúdo: artigo + decisão + critérios + justificativa */}
+          {/* Conteúdo: artigo + decisão + justificativa + critérios */}
           <div className="grid min-h-0 flex-1 grid-rows-[1fr] gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]">
             {/* Artigo */}
             <section className="min-h-0 overflow-hidden border-b border-slate-200 p-5 lg:border-b-0 lg:border-r dark:border-slate-800">
@@ -314,6 +314,19 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
                   Decisão
                 </h3>
                 <DecisionBar decision={current.decision} onChange={setDecision} />
+              </div>
+
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  Justificativa (opcional)
+                </h3>
+                <textarea
+                  value={current.justification}
+                  onChange={(e) => setJustification(e.target.value)}
+                  placeholder="Anote o raciocínio da decisão (vira coluna no export, útil para o RAG)…"
+                  rows={4}
+                  className="w-full resize-y rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-slate-500"
+                />
               </div>
 
               <div>
@@ -339,19 +352,6 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
                     }
                   />
                 )}
-              </div>
-
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  Justificativa (opcional)
-                </h3>
-                <textarea
-                  value={current.justification}
-                  onChange={(e) => setJustification(e.target.value)}
-                  placeholder="Anote o raciocínio da decisão (vira coluna no export, útil para o RAG)…"
-                  rows={4}
-                  className="w-full resize-y rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-slate-500"
-                />
               </div>
             </section>
           </div>
