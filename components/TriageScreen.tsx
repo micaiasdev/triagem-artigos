@@ -10,6 +10,7 @@ import {
   RotateCcw,
   SkipForward,
   SlidersHorizontal,
+  Star,
 } from "lucide-react";
 import type {
   AppState,
@@ -23,7 +24,11 @@ import ArticleList, { type Filter } from "./ArticleList";
 import CriteriaManager from "./CriteriaManager";
 import CriteriaPicker from "./CriteriaPicker";
 import DecisionBar from "./DecisionBar";
+import FullTextPanel from "./FullTextPanel";
+import FullTextViewer from "./FullTextViewer";
 import ThemeToggle from "./ThemeToggle";
+
+type Stage = "triage" | "fulltext";
 
 export default function TriageScreen({ initialState }: { initialState: AppState }) {
   const router = useRouter();
@@ -43,6 +48,9 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [stage, setStage] = useState<Stage>("triage");
+  const [uploading, setUploading] = useState(false);
 
   const current = articles[index];
 
@@ -50,16 +58,39 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
     let included = 0;
     let excluded = 0;
     let pending = 0;
+    let favorites = 0;
+    let ftIncluded = 0;
+    let ftExcluded = 0;
+    let ftPending = 0;
     for (const a of articles) {
       if (a.decision === "included") included++;
       else if (a.decision === "excluded") excluded++;
       else pending++;
+      if (a.favorite) favorites++;
+      if (a.fullTextDecision === "included") ftIncluded++;
+      else if (a.fullTextDecision === "excluded") ftExcluded++;
+      else ftPending++;
     }
-    return { total: articles.length, included, excluded, pending };
+    return {
+      total: articles.length,
+      included,
+      excluded,
+      pending,
+      favorites,
+      ftIncluded,
+      ftExcluded,
+      ftPending,
+    };
   }, [articles]);
 
-  const classified = counts.included + counts.excluded;
-  const progress = counts.total ? Math.round((classified / counts.total) * 100) : 0;
+  const isFt = stage === "fulltext";
+  const activeIncluded = isFt ? counts.ftIncluded : counts.included;
+  const activeExcluded = isFt ? counts.ftExcluded : counts.excluded;
+  const activePending = isFt ? counts.ftPending : counts.pending;
+  const activeClassified = activeIncluded + activeExcluded;
+  const activeProgress = counts.total
+    ? Math.round((activeClassified / counts.total) * 100)
+    : 0;
 
   // -------- persistência --------
   const patch = useCallback(async (id: string, body: ArticlePatch) => {
@@ -75,18 +106,26 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
     }
   }, []);
 
+  const updateCurrent = useCallback(
+    (patchObj: Partial<Article>, body: ArticlePatch) => {
+      if (!current) return;
+      const id = current.id;
+      setArticles((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, ...patchObj } : x))
+      );
+      patch(id, body);
+    },
+    [current, patch]
+  );
+
+  // -------- triagem (etapa 1) --------
   const setDecision = useCallback(
     (clicked: Decision) => {
       if (!current) return;
       const decision: Decision = current.decision === clicked ? "pending" : clicked;
-      setArticles((prev) =>
-        prev.map((x) =>
-          x.id === current.id ? { ...x, decision, criteriaCodes: [] } : x
-        )
-      );
-      patch(current.id, { decision, criteriaCodes: [] });
+      updateCurrent({ decision, criteriaCodes: [] }, { decision, criteriaCodes: [] });
     },
-    [current, patch]
+    [current, updateCurrent]
   );
 
   const toggleCriterion = useCallback(
@@ -96,12 +135,24 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
       const criteriaCodes = has
         ? current.criteriaCodes.filter((c) => c !== code)
         : [...current.criteriaCodes, code];
-      setArticles((prev) =>
-        prev.map((x) => (x.id === current.id ? { ...x, criteriaCodes } : x))
-      );
-      patch(current.id, { criteriaCodes });
+      updateCurrent({ criteriaCodes }, { criteriaCodes });
     },
-    [current, patch]
+    [current, updateCurrent]
+  );
+
+  const visibleCriteria =
+    current?.decision === "included"
+      ? inclusionCriteria
+      : current?.decision === "excluded"
+        ? exclusionCriteria
+        : [];
+
+  const setAllCriteria = useCallback(
+    (select: boolean) => {
+      const criteriaCodes = select ? visibleCriteria.map((c) => c.code) : [];
+      updateCurrent({ criteriaCodes }, { criteriaCodes });
+    },
+    [visibleCriteria, updateCurrent]
   );
 
   const justTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -118,6 +169,125 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
     [current, patch]
   );
 
+  const toggleFavorite = useCallback(() => {
+    if (!current) return;
+    updateCurrent({ favorite: !current.favorite }, { favorite: !current.favorite });
+  }, [current, updateCurrent]);
+
+  // -------- full-text (etapa 2) --------
+  const setFullTextDecision = useCallback(
+    (clicked: Decision) => {
+      if (!current) return;
+      const fullTextDecision: Decision =
+        current.fullTextDecision === clicked ? "pending" : clicked;
+      updateCurrent(
+        { fullTextDecision, fullTextCriteriaCodes: [] },
+        { fullTextDecision, fullTextCriteriaCodes: [] }
+      );
+    },
+    [current, updateCurrent]
+  );
+
+  const toggleFullTextCriterion = useCallback(
+    (code: string) => {
+      if (!current) return;
+      const has = current.fullTextCriteriaCodes.includes(code);
+      const fullTextCriteriaCodes = has
+        ? current.fullTextCriteriaCodes.filter((c) => c !== code)
+        : [...current.fullTextCriteriaCodes, code];
+      updateCurrent({ fullTextCriteriaCodes }, { fullTextCriteriaCodes });
+    },
+    [current, updateCurrent]
+  );
+
+  const visibleFullTextCriteria =
+    current?.fullTextDecision === "included"
+      ? inclusionCriteria
+      : current?.fullTextDecision === "excluded"
+        ? exclusionCriteria
+        : [];
+
+  const setAllFullTextCriteria = useCallback(
+    (select: boolean) => {
+      const fullTextCriteriaCodes = select
+        ? visibleFullTextCriteria.map((c) => c.code)
+        : [];
+      updateCurrent({ fullTextCriteriaCodes }, { fullTextCriteriaCodes });
+    },
+    [visibleFullTextCriteria, updateCurrent]
+  );
+
+  const ftJustTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setFullTextJustification = useCallback(
+    (text: string) => {
+      if (!current) return;
+      const id = current.id;
+      setArticles((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, fullTextJustification: text } : x))
+      );
+      if (ftJustTimer.current) clearTimeout(ftJustTimer.current);
+      ftJustTimer.current = setTimeout(
+        () => patch(id, { fullTextJustification: text }),
+        500
+      );
+    },
+    [current, patch]
+  );
+
+  const ftLinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setFullTextLink = useCallback(
+    (link: string) => {
+      if (!current) return;
+      const id = current.id;
+      setArticles((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, fullTextLink: link } : x))
+      );
+      if (ftLinkTimer.current) clearTimeout(ftLinkTimer.current);
+      ftLinkTimer.current = setTimeout(() => patch(id, { fullTextLink: link }), 500);
+    },
+    [current, patch]
+  );
+
+  const uploadPdf = useCallback(
+    async (file: File) => {
+      if (!current) return;
+      const id = current.id;
+      setUploading(true);
+      try {
+        const form = new FormData();
+        form.append("pdf", file);
+        const res = await fetch(`/api/articles/${id}/pdf`, {
+          method: "PUT",
+          body: form,
+        });
+        const data = await res.json();
+        if (res.ok && data.article) {
+          setArticles((prev) =>
+            prev.map((x) =>
+              x.id === id ? { ...x, pdfName: data.article.pdfName } : x
+            )
+          );
+        } else {
+          alert(data.error ?? "Falha ao enviar o PDF.");
+        }
+      } catch (e) {
+        alert("Erro de rede: " + (e as Error).message);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [current]
+  );
+
+  const removePdf = useCallback(async () => {
+    if (!current) return;
+    const id = current.id;
+    setArticles((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, pdfName: "" } : x))
+    );
+    await fetch(`/api/articles/${id}/pdf`, { method: "DELETE" });
+  }, [current]);
+
   // -------- navegação --------
   const goTo = useCallback(
     (i: number) => setIndex(Math.max(0, Math.min(articles.length - 1, i))),
@@ -129,31 +299,13 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
     const n = articles.length;
     for (let off = 1; off <= n; off++) {
       const i = (index + off) % n;
-      if (articles[i].decision === "pending") {
+      const d = isFt ? articles[i].fullTextDecision : articles[i].decision;
+      if (d === "pending") {
         setIndex(i);
         return;
       }
     }
-  }, [articles, index]);
-
-  const visibleCriteria =
-    current?.decision === "included"
-      ? inclusionCriteria
-      : current?.decision === "excluded"
-        ? exclusionCriteria
-        : [];
-
-  const setAllCriteria = useCallback(
-    (select: boolean) => {
-      if (!current) return;
-      const criteriaCodes = select ? visibleCriteria.map((c) => c.code) : [];
-      setArticles((prev) =>
-        prev.map((x) => (x.id === current.id ? { ...x, criteriaCodes } : x))
-      );
-      patch(current.id, { criteriaCodes });
-    },
-    [current, patch, visibleCriteria]
-  );
+  }, [articles, index, isFt]);
 
   // -------- atalhos de teclado --------
   useEffect(() => {
@@ -175,40 +327,55 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
         e.preventDefault();
         prev();
       } else if (e.key === "i" || e.key === "I") {
-        setDecision("included");
+        isFt ? setFullTextDecision("included") : setDecision("included");
       } else if (e.key === "e" || e.key === "E") {
-        setDecision("excluded");
+        isFt ? setFullTextDecision("excluded") : setDecision("excluded");
+      } else if (e.key === "f" || e.key === "F") {
+        toggleFavorite();
       } else if (e.key >= "1" && e.key <= "9") {
-        const c = visibleCriteria[Number(e.key) - 1];
-        if (c) toggleCriterion(c.code);
+        const list = isFt ? visibleFullTextCriteria : visibleCriteria;
+        const c = list[Number(e.key) - 1];
+        if (c) (isFt ? toggleFullTextCriterion : toggleCriterion)(c.code);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, prev, setDecision, toggleCriterion, visibleCriteria, managerOpen]);
+  }, [
+    next,
+    prev,
+    isFt,
+    setDecision,
+    setFullTextDecision,
+    toggleCriterion,
+    toggleFullTextCriterion,
+    toggleFavorite,
+    visibleCriteria,
+    visibleFullTextCriteria,
+    managerOpen,
+  ]);
 
-  // -------- lista filtrada (sidebar) --------
+  // -------- lista filtrada (sidebar; filtro pela decisão da triagem) --------
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return articles
       .map((a, i) => ({ a, i }))
       .filter(({ a }) => (filter === "all" ? true : a.decision === filter))
+      .filter(({ a }) => (favoritesOnly ? a.favorite : true))
       .filter(({ a }) => (q === "" ? true : a.title.toLowerCase().includes(q)));
-  }, [articles, filter, search]);
+  }, [articles, filter, search, favoritesOnly]);
 
   const handleCriteriaChange = useCallback(
-    (next: Criterion[], deletedCode?: string) => {
-      setCriteria(next);
+    (nextCriteria: Criterion[], deletedCode?: string) => {
+      setCriteria(nextCriteria);
       if (deletedCode) {
         setArticles((prev) =>
-          prev.map((a) =>
-            a.criteriaCodes.includes(deletedCode)
-              ? {
-                  ...a,
-                  criteriaCodes: a.criteriaCodes.filter((c) => c !== deletedCode),
-                }
-              : a
-          )
+          prev.map((a) => ({
+            ...a,
+            criteriaCodes: a.criteriaCodes.filter((c) => c !== deletedCode),
+            fullTextCriteriaCodes: a.fullTextCriteriaCodes.filter(
+              (c) => c !== deletedCode
+            ),
+          }))
         );
       }
     },
@@ -234,29 +401,57 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
     );
   }
 
+  const exportBase = isFt ? "/api/export-fulltext" : "/api/export";
+
   return (
     <div className="flex h-screen flex-col">
       {/* Header */}
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-200 bg-white px-5 py-3 dark:border-slate-800 dark:bg-slate-900">
+      <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-slate-200 bg-white px-5 py-3 dark:border-slate-800 dark:bg-slate-900">
         <h1 className="text-lg font-bold text-slate-900 dark:text-slate-50">
           Triagem de Artigos
         </h1>
 
+        {/* Abas de etapa */}
+        <div className="flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700">
+          {(
+            [
+              ["triage", "Triagem"],
+              ["fulltext", "Full-text"],
+            ] as [Stage, string][]
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setStage(key)}
+              className={`rounded-md px-3 py-1 text-sm font-medium transition ${
+                stage === key
+                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center gap-3 text-sm">
           <span className="text-slate-500 dark:text-slate-400">
-            {classified}/{counts.total} classificados ({progress}%)
+            {activeClassified}/{counts.total} classificados ({activeProgress}%)
           </span>
           <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            {counts.included}
+            {activeIncluded}
           </span>
           <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-400">
             <span className="h-2 w-2 rounded-full bg-rose-500" />
-            {counts.excluded}
+            {activeExcluded}
           </span>
           <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400">
             <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" />
-            {counts.pending}
+            {activePending}
+          </span>
+          <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+            <Star className="h-3 w-3 fill-current" />
+            {counts.favorites}
           </span>
         </div>
 
@@ -267,13 +462,15 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
             </span>
           )}
           <a
-            href="/api/export?format=xlsx"
+            href={`${exportBase}?format=xlsx`}
+            title={isFt ? "Exportar full-text (XLSX)" : "Exportar triagem (XLSX)"}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             <FileDown className="h-4 w-4" /> XLSX
           </a>
           <a
-            href="/api/export?format=csv"
+            href={`${exportBase}?format=csv`}
+            title={isFt ? "Exportar full-text (CSV)" : "Exportar triagem (CSV)"}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             <FileDown className="h-4 w-4" /> CSV
@@ -296,7 +493,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
         <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
           <div
             className="h-full bg-slate-900 transition-all dark:bg-slate-100"
-            style={{ width: `${progress}%` }}
+            style={{ width: `${activeProgress}%` }}
           />
         </div>
       </header>
@@ -313,6 +510,9 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
             setFilter={setFilter}
             search={search}
             setSearch={setSearch}
+            favoritesOnly={favoritesOnly}
+            setFavoritesOnly={setFavoritesOnly}
+            dotDecision={isFt ? (a) => a.fullTextDecision : undefined}
           />
         </aside>
 
@@ -347,61 +547,81 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
             </div>
           </div>
 
-          {/* Conteúdo: artigo + decisão + justificativa + critérios */}
-          <div className="grid min-h-0 flex-1 grid-rows-[1fr] gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]">
-            {/* Artigo */}
+          {/* Conteúdo */}
+          <div className="grid min-h-0 flex-1 grid-rows-[1fr] gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_400px]">
+            {/* Esquerda: artigo (triagem) ou full-text */}
             <section className="min-h-0 overflow-hidden border-b border-slate-200 p-5 lg:border-b-0 lg:border-r dark:border-slate-800">
-              <ArticleCard article={current} />
+              {isFt ? (
+                <FullTextViewer article={current} />
+              ) : (
+                <ArticleCard article={current} onToggleFavorite={toggleFavorite} />
+              )}
             </section>
 
-            {/* Painel de classificação */}
-            <section className="min-h-0 space-y-5 overflow-y-auto bg-white p-5 dark:bg-slate-900">
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  Decisão
-                </h3>
-                <DecisionBar decision={current.decision} onChange={setDecision} />
-              </div>
+            {/* Direita: painel de classificação */}
+            {isFt ? (
+              <FullTextPanel
+                article={current}
+                visibleCriteria={visibleFullTextCriteria}
+                onDecision={setFullTextDecision}
+                onToggleCriterion={toggleFullTextCriterion}
+                onSelectAllCriteria={setAllFullTextCriteria}
+                onJustification={setFullTextJustification}
+                onLinkChange={setFullTextLink}
+                onUploadPdf={uploadPdf}
+                onRemovePdf={removePdf}
+                uploading={uploading}
+              />
+            ) : (
+              <section className="min-h-0 space-y-5 overflow-y-auto bg-white p-5 dark:bg-slate-900">
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    Decisão
+                  </h3>
+                  <DecisionBar decision={current.decision} onChange={setDecision} />
+                </div>
 
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  Justificativa (opcional)
-                </h3>
-                <textarea
-                  value={current.justification}
-                  onChange={(e) => setJustification(e.target.value)}
-                  placeholder="Anote o raciocínio da decisão (vira coluna no export, útil para o RAG)…"
-                  rows={4}
-                  className="w-full resize-y rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-slate-500"
-                />
-              </div>
-
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  {current.decision === "included"
-                    ? "Critérios de inclusão aplicáveis"
-                    : current.decision === "excluded"
-                      ? "Critérios de exclusão aplicáveis"
-                      : "Critérios"}
-                </h3>
-                {current.decision === "pending" ? (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Escolha <strong>Incluso</strong> ou <strong>Não incluso</strong>{" "}
-                    para marcar os critérios correspondentes.
-                  </p>
-                ) : (
-                  <CriteriaPicker
-                    criteria={visibleCriteria}
-                    selected={current.criteriaCodes}
-                    onToggle={toggleCriterion}
-                    onSelectAll={setAllCriteria}
-                    kindLabel={
-                      current.decision === "included" ? "inclusão" : "exclusão"
-                    }
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    Justificativa (opcional)
+                  </h3>
+                  <textarea
+                    value={current.justification}
+                    onChange={(e) => setJustification(e.target.value)}
+                    placeholder="Anote o raciocínio da decisão (vira coluna no export, útil para o RAG)…"
+                    rows={4}
+                    className="w-full resize-y rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-slate-500"
                   />
-                )}
-              </div>
-            </section>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    {current.decision === "included"
+                      ? "Critérios de inclusão aplicáveis"
+                      : current.decision === "excluded"
+                        ? "Critérios de exclusão aplicáveis"
+                        : "Critérios"}
+                  </h3>
+                  {current.decision === "pending" ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Escolha <strong>Incluso</strong> ou{" "}
+                      <strong>Não incluso</strong> para marcar os critérios
+                      correspondentes.
+                    </p>
+                  ) : (
+                    <CriteriaPicker
+                      criteria={visibleCriteria}
+                      selected={current.criteriaCodes}
+                      onToggle={toggleCriterion}
+                      onSelectAll={setAllCriteria}
+                      kindLabel={
+                        current.decision === "included" ? "inclusão" : "exclusão"
+                      }
+                    />
+                  )}
+                </div>
+              </section>
+            )}
           </div>
         </main>
       </div>

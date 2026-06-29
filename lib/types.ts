@@ -22,6 +22,17 @@ export interface Article {
   /** Códigos de critérios marcados (sempre do tipo correspondente à decisão). */
   criteriaCodes: string[];
   justification: string;
+  /** Marcação pessoal de favorito — NÃO é exportado na planilha. */
+  favorite: boolean;
+
+  // --- Etapa 2: análise de full-text (planilha de export separada) ---
+  fullTextDecision: Decision;
+  fullTextCriteriaCodes: string[];
+  fullTextJustification: string;
+  /** Link para o full-text; cai para url/doi se vazio. */
+  fullTextLink: string;
+  /** Nome do PDF enviado (vazio = sem PDF). Arquivo em data/pdfs/<id>.pdf */
+  pdfName: string;
 }
 
 export interface AppState {
@@ -38,4 +49,9 @@ export interface ArticlePatch {
   decision?: Decision;
   criteriaCodes?: string[];
   justification?: string;
+  favorite?: boolean;
+  fullTextDecision?: Decision;
+  fullTextCriteriaCodes?: string[];
+  fullTextJustification?: string;
+  fullTextLink?: string;
 }

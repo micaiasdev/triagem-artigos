@@ -3,7 +3,8 @@ import path from "node:path";
 import type { AppState } from "./types";
 
 // Diretório de dados configurável (no Docker é montado como volume).
-const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), "data");
+export const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), "data");
+export const PDF_DIR = path.join(DATA_DIR, "pdfs");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
 const TMP_FILE = path.join(DATA_DIR, "state.json.tmp");
 
@@ -24,7 +25,17 @@ async function writeAtomic(state: AppState): Promise<void> {
 export async function loadState(): Promise<AppState | null> {
   try {
     const raw = await fs.readFile(STATE_FILE, "utf8");
-    return JSON.parse(raw) as AppState;
+    const state = JSON.parse(raw) as AppState;
+    // Migração: garante campos adicionados depois (favorite, full-text).
+    for (const a of state.articles) {
+      if (typeof a.favorite !== "boolean") a.favorite = false;
+      if (typeof a.fullTextDecision !== "string") a.fullTextDecision = "pending";
+      if (!Array.isArray(a.fullTextCriteriaCodes)) a.fullTextCriteriaCodes = [];
+      if (typeof a.fullTextJustification !== "string") a.fullTextJustification = "";
+      if (typeof a.fullTextLink !== "string") a.fullTextLink = "";
+      if (typeof a.pdfName !== "string") a.pdfName = "";
+    }
+    return state;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;

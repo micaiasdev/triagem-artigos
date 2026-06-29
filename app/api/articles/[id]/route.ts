@@ -1,11 +1,30 @@
 import { NextResponse } from "next/server";
 import { updateState } from "@/lib/store";
-import type { ArticlePatch, Decision } from "@/lib/types";
+import type { AppState, Decision, ArticlePatch } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DECISIONS: Decision[] = ["pending", "included", "excluded"];
+
+// Mantém apenas critérios cujo tipo bate com a decisão (inclusão/exclusão).
+function filterCriteria(
+  state: AppState,
+  decision: Decision,
+  codes: string[]
+): string[] {
+  const type =
+    decision === "included"
+      ? "inclusion"
+      : decision === "excluded"
+        ? "exclusion"
+        : null;
+  if (type === null) return [];
+  const allowed = new Set(
+    state.criteria.filter((c) => c.type === type).map((c) => c.code)
+  );
+  return codes.filter((code) => allowed.has(code));
+}
 
 export async function PATCH(
   req: Request,
@@ -36,22 +55,31 @@ export async function PATCH(
     if (typeof body.justification === "string") {
       art.justification = body.justification;
     }
-
-    // Integridade: só mantém critérios cujo tipo bate com a decisão atual.
-    const allowedType =
-      art.decision === "included"
-        ? "inclusion"
-        : art.decision === "excluded"
-          ? "exclusion"
-          : null;
-    if (allowedType === null) {
-      art.criteriaCodes = [];
-    } else {
-      const allowed = new Set(
-        state.criteria.filter((c) => c.type === allowedType).map((c) => c.code)
-      );
-      art.criteriaCodes = art.criteriaCodes.filter((code) => allowed.has(code));
+    if (typeof body.favorite === "boolean") {
+      art.favorite = body.favorite;
     }
+
+    // --- Etapa 2: full-text ---
+    if (typeof body.fullTextDecision === "string" && DECISIONS.includes(body.fullTextDecision)) {
+      art.fullTextDecision = body.fullTextDecision;
+    }
+    if (Array.isArray(body.fullTextCriteriaCodes)) {
+      art.fullTextCriteriaCodes = body.fullTextCriteriaCodes.map(String);
+    }
+    if (typeof body.fullTextJustification === "string") {
+      art.fullTextJustification = body.fullTextJustification;
+    }
+    if (typeof body.fullTextLink === "string") {
+      art.fullTextLink = body.fullTextLink;
+    }
+
+    // Integridade: critérios só do tipo correspondente à decisão (triagem e full-text).
+    art.criteriaCodes = filterCriteria(state, art.decision, art.criteriaCodes);
+    art.fullTextCriteriaCodes = filterCriteria(
+      state,
+      art.fullTextDecision,
+      art.fullTextCriteriaCodes
+    );
   });
 
   if (updated === null) {

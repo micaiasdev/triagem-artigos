@@ -6,9 +6,13 @@ import type { Decision } from "@/lib/types";
 export default function DecisionBar({
   decision,
   onChange,
+  includedLabel = "Incluso",
+  excludedLabel = "Não incluso",
 }: {
   decision: Decision;
   onChange: (clicked: Decision) => void;
+  includedLabel?: string;
+  excludedLabel?: string;
 }) {
   return (
     <div className="flex flex-wrap gap-3">
@@ -22,7 +26,7 @@ export default function DecisionBar({
         }`}
       >
         <Check className="h-5 w-5" />
-        Incluso
+        {includedLabel}
         <kbd className="ml-1 rounded bg-black/10 px-1.5 text-xs font-normal dark:bg-white/15">
           I
         </kbd>
@@ -37,7 +41,7 @@ export default function DecisionBar({
         }`}
       >
         <X className="h-5 w-5" />
-        Não incluso
+        {excludedLabel}
         <kbd className="ml-1 rounded bg-black/10 px-1.5 text-xs font-normal dark:bg-white/15">
           E
         </kbd>

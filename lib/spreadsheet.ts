@@ -151,6 +151,12 @@ export function parseArticles(data: Buffer): ParseArticlesResult {
       decision: parseIncluded(included),
       criteriaCodes: [],
       justification: "",
+      favorite: false,
+      fullTextDecision: "pending",
+      fullTextCriteriaCodes: [],
+      fullTextJustification: "",
+      fullTextLink: "",
+      pdfName: "",
     });
   });
 
@@ -334,6 +340,79 @@ export function buildExportXlsx(state: AppState): Buffer {
 
 export function buildExportCsv(state: AppState): string {
   const ws = XLSX.utils.aoa_to_sheet(buildExportAoa(state));
+  return XLSX.utils.sheet_to_csv(ws);
+}
+
+// ---------------------------------------------------------------------------
+// Exportação da etapa 2 (full-text) — planilha separada
+// ---------------------------------------------------------------------------
+
+const FULLTEXT_HEADERS = [
+  "title",
+  "abstract",
+  "keywords",
+  "authors",
+  "doi",
+  "url",
+  "full_text_included",
+  "full_text_decision",
+  "full_text_criteria_codes",
+  "full_text_criteria_descriptions",
+  "full_text_justification",
+  "source",
+] as const;
+
+function fullTextSource(a: Article): string {
+  if (a.pdfName) return `PDF: ${a.pdfName}`;
+  const doiUrl = a.doi
+    ? /^https?:/i.test(a.doi)
+      ? a.doi
+      : `https://doi.org/${a.doi.replace(/^doi:\s*/i, "")}`
+    : "";
+  const link = (a.fullTextLink || a.url || doiUrl).trim();
+  return link ? `Link: ${link}` : "";
+}
+
+function buildFullTextAoa(state: AppState): unknown[][] {
+  const byCode = new Map(state.criteria.map((c) => [c.code, c]));
+  const rows: unknown[][] = [[...FULLTEXT_HEADERS]];
+
+  for (const a of state.articles) {
+    const codes = a.fullTextCriteriaCodes.join("; ");
+    const descs = a.fullTextCriteriaCodes
+      .map((code) => {
+        const c = byCode.get(code);
+        return c ? `${code} - ${c.description}` : code;
+      })
+      .join("; ");
+
+    rows.push([
+      a.title,
+      a.abstract,
+      a.keywords,
+      a.authors,
+      a.doi,
+      a.url,
+      decisionToIncluded(a.fullTextDecision),
+      decisionLabel(a.fullTextDecision),
+      codes,
+      descs,
+      a.fullTextJustification,
+      fullTextSource(a),
+    ]);
+  }
+  return rows;
+}
+
+export function buildFullTextXlsx(state: AppState): Buffer {
+  const ws = XLSX.utils.aoa_to_sheet(buildFullTextAoa(state));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "full_text");
+  return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+export function buildFullTextCsv(state: AppState): string {
+  const ws = XLSX.utils.aoa_to_sheet(buildFullTextAoa(state));
   return XLSX.utils.sheet_to_csv(ws);
 }
 

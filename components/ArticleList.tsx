@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
 import type { Article, Decision } from "@/lib/types";
 
 export type Filter = "all" | "pending" | "included" | "excluded";
@@ -28,6 +28,9 @@ export default function ArticleList({
   setFilter,
   search,
   setSearch,
+  favoritesOnly,
+  setFavoritesOnly,
+  dotDecision,
 }: {
   items: { a: Article; i: number }[];
   currentId: string | undefined;
@@ -36,18 +39,37 @@ export default function ArticleList({
   setFilter: (f: Filter) => void;
   search: string;
   setSearch: (s: string) => void;
+  favoritesOnly: boolean;
+  setFavoritesOnly: (b: boolean) => void;
+  /** Qual decisão colore o ponto de status (triagem por padrão). */
+  dotDecision?: (a: Article) => Decision;
 }) {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-slate-200 p-3 dark:border-slate-800">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por título…"
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-2 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-slate-500"
-          />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por título…"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-2 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-slate-500"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setFavoritesOnly(!favoritesOnly)}
+            aria-pressed={favoritesOnly}
+            title="Mostrar apenas favoritos"
+            className={`flex shrink-0 items-center justify-center rounded-lg border px-2.5 transition ${
+              favoritesOnly
+                ? "border-amber-400 bg-amber-50 text-amber-500 dark:border-amber-500/50 dark:bg-amber-950/40 dark:text-amber-400"
+                : "border-slate-200 bg-white text-slate-400 hover:text-amber-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500 dark:hover:text-amber-400"
+            }`}
+          >
+            <Star className={`h-4 w-4 ${favoritesOnly ? "fill-current" : ""}`} />
+          </button>
         </div>
         <div className="mt-2 flex gap-1">
           {FILTERS.map((f) => (
@@ -83,9 +105,11 @@ export default function ArticleList({
               }`}
             >
               <span
-                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotClass(a.decision)}`}
+                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotClass(
+                  dotDecision ? dotDecision(a) : a.decision
+                )}`}
               />
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 <span className="block text-xs text-slate-400 dark:text-slate-500">
                   #{i + 1}
                 </span>
@@ -93,6 +117,9 @@ export default function ArticleList({
                   {a.title}
                 </span>
               </span>
+              {a.favorite && (
+                <Star className="mt-1 h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
+              )}
             </button>
           </li>
         ))}

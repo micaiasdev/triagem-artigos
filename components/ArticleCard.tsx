@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Star } from "lucide-react";
 import type { Article } from "@/lib/types";
 
 function doiHref(doi: string): string | null {
@@ -10,13 +10,34 @@ function doiHref(doi: string): string | null {
   return `https://doi.org/${d.replace(/^doi:\s*/i, "")}`;
 }
 
-export default function ArticleCard({ article }: { article: Article }) {
+export default function ArticleCard({
+  article,
+  onToggleFavorite,
+}: {
+  article: Article;
+  onToggleFavorite: () => void;
+}) {
   const dHref = doiHref(article.doi);
   return (
     <article className="flex h-full flex-col">
-      <h2 className="text-xl font-bold leading-snug text-slate-900 dark:text-slate-50">
-        {article.title}
-      </h2>
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-xl font-bold leading-snug text-slate-900 dark:text-slate-50">
+          {article.title}
+        </h2>
+        <button
+          type="button"
+          onClick={onToggleFavorite}
+          aria-label={article.favorite ? "Remover dos favoritos" : "Favoritar"}
+          title={article.favorite ? "Remover dos favoritos (F)" : "Favoritar (F)"}
+          className={`shrink-0 rounded-lg p-1.5 transition ${
+            article.favorite
+              ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+              : "text-slate-300 hover:bg-slate-100 hover:text-amber-500 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-amber-400"
+          }`}
+        >
+          <Star className={`h-5 w-5 ${article.favorite ? "fill-current" : ""}`} />
+        </button>
+      </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
         {article.authors && (
