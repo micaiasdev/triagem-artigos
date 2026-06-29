@@ -72,3 +72,28 @@ export async function updateState(
   writeQueue = run.catch(() => {});
   return run;
 }
+
+// --- PDFs ---------------------------------------------------------------
+
+export function pdfPath(id: string): string {
+  const safe = id.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return path.join(PDF_DIR, `${safe}.pdf`);
+}
+
+export async function writePdf(id: string, data: Buffer): Promise<void> {
+  await fs.mkdir(PDF_DIR, { recursive: true });
+  await fs.writeFile(pdfPath(id), data);
+}
+
+export async function readPdf(id: string): Promise<Buffer> {
+  return fs.readFile(pdfPath(id));
+}
+
+export async function deletePdf(id: string): Promise<void> {
+  await fs.rm(pdfPath(id), { force: true });
+}
+
+/** Remove todos os PDFs (usado ao restaurar um .zip de dataset). */
+export async function clearAllPdfs(): Promise<void> {
+  await fs.rm(PDF_DIR, { recursive: true, force: true });
+}

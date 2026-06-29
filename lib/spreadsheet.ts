@@ -87,9 +87,33 @@ function parseIncluded(v: string): Decision {
   return "pending";
 }
 
+function basename(p: string): string {
+  const parts = p.split(/[\\/]/);
+  return (parts[parts.length - 1] ?? "").trim();
+}
+
+function splitCodes(raw: string): string[] {
+  return raw
+    .split(/[;,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Infere o tipo de um critério pelo prefixo do código (CI/I -> inclusão, CE/E -> exclusão). */
+function inferCriterionType(code: string): CriterionType {
+  const c = code.trim().toUpperCase();
+  if (/^(C?I|INC)/.test(c)) return "inclusion";
+  if (/^(C?E|EXC)/.test(c)) return "exclusion";
+  return "exclusion";
+}
+
 export interface ParseArticlesResult {
   articles: Article[];
   warnings: string[];
+  /** id do artigo -> nome do PDF declarado na planilha (para casar com PDFs enviados). */
+  pdfFileNames: Record<string, string>;
+  /** Critérios referenciados na planilha (reconstruídos de criteria_codes/descriptions). */
+  referencedCriteria: Criterion[];
 }
 
 export function parseArticles(data: Buffer): ParseArticlesResult {
@@ -97,6 +121,9 @@ export function parseArticles(data: Buffer): ParseArticlesResult {
   const warnings: string[] = [];
   const articles: Article[] = [];
   const usedIds = new Set<string>();
+  const pdfFileNames: Record<string, string> = {};
+  const descByCode = new Map<string, string>();
+  const referencedCodes = new Set<string>();
   let skippedBlank = 0;
   let missingAbstract = 0;
 
@@ -104,18 +131,47 @@ export function parseArticles(data: Buffer): ParseArticlesResult {
     const canon: Partial<Record<keyof Article, string>> = {};
     const extra: Record<string, string> = {};
     let included = "";
+    let decisionRaw = "";
+    let criteriaCodesRaw = "";
+    let criteriaDescRaw = "";
+    let justificationRaw = "";
+    let pdfFileName = "";
+    let pdfPathRaw = "";
 
     for (const [rawKey, rawVal] of Object.entries(row)) {
-      const field = canonicalArticleField(normalize(rawKey));
+      const nh = normalize(rawKey);
       const value = str(rawVal);
+      const field = canonicalArticleField(nh);
       if (field === "included") {
         included = value;
-      } else if (field) {
-        canon[field] = value;
-      } else {
-        const key = String(rawKey).trim();
-        if (key) extra[key] = value;
+        continue;
       }
+      if (field) {
+        canon[field] = value;
+        continue;
+      }
+      switch (nh) {
+        case "decision":
+          decisionRaw = value;
+          continue;
+        case "criteria codes":
+          criteriaCodesRaw = value;
+          continue;
+        case "criteria descriptions":
+          criteriaDescRaw = value;
+          continue;
+        case "justification":
+          justificationRaw = value;
+          continue;
+        case "pdf file name":
+          pdfFileName = value;
+          continue;
+        case "pdf path":
+          pdfPathRaw = value;
+          continue;
+      }
+      const key = String(rawKey).trim();
+      if (key) extra[key] = value;
     }
 
     const title = canon.title ?? "";
@@ -144,13 +200,31 @@ export function parseArticles(data: Buffer): ParseArticlesResult {
     while (usedIds.has(id)) id = `${makeId(base)}-${n++}`;
     usedIds.add(id);
 
+    const decision = decisionRaw
+      ? parseIncluded(decisionRaw)
+      : parseIncluded(included);
+    const criteriaCodes = splitCodes(criteriaCodesRaw);
+
+    // Acumula catálogo de critérios reconstruído a partir das linhas.
+    for (const code of criteriaCodes) referencedCodes.add(code);
+    for (const seg of criteriaDescRaw.split(";")) {
+      const m = seg.match(/^\s*([^\s-][^-]*?)\s*-\s*(.+)$/);
+      if (m) {
+        const code = m[1].trim();
+        if (code && !descByCode.has(code)) descByCode.set(code, m[2].trim());
+      }
+    }
+
+    const fname = (pdfFileName.trim() || basename(pdfPathRaw)).trim();
+    if (fname) pdfFileNames[id] = fname;
+
     articles.push({
       id,
       ...base,
       extra,
-      decision: parseIncluded(included),
-      criteriaCodes: [],
-      justification: "",
+      decision,
+      criteriaCodes,
+      justification: justificationRaw,
       favorite: false,
       fullTextDecision: "pending",
       fullTextCriteriaCodes: [],
@@ -160,12 +234,18 @@ export function parseArticles(data: Buffer): ParseArticlesResult {
     });
   });
 
+  const referencedCriteria: Criterion[] = [...referencedCodes].map((code) => ({
+    code,
+    type: inferCriterionType(code),
+    description: descByCode.get(code) ?? "",
+  }));
+
   if (skippedBlank)
     warnings.push(`${skippedBlank} linha(s) em branco ignorada(s).`);
   if (missingAbstract)
     warnings.push(`${missingAbstract} artigo(s) sem abstract (mantidos).`);
 
-  return { articles, warnings };
+  return { articles, warnings, pdfFileNames, referencedCriteria };
 }
 
 // ---------------------------------------------------------------------------

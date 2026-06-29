@@ -1,15 +1,8 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { NextResponse } from "next/server";
-import { PDF_DIR, updateState } from "@/lib/store";
+import { deletePdf, readPdf, updateState, writePdf } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function pdfPath(id: string): string {
-  const safe = id.replace(/[^a-zA-Z0-9_-]/g, "_");
-  return path.join(PDF_DIR, `${safe}.pdf`);
-}
 
 // Serve o PDF enviado (para exibir no iframe).
 export async function GET(
@@ -18,7 +11,7 @@ export async function GET(
 ) {
   const { id } = await ctx.params;
   try {
-    const buf = await fs.readFile(pdfPath(id));
+    const buf = await readPdf(id);
     return new Response(new Uint8Array(buf), {
       headers: {
         "Content-Type": "application/pdf",
@@ -52,8 +45,7 @@ export async function PUT(
     return NextResponse.json({ error: "Envie um arquivo .pdf." }, { status: 400 });
   }
 
-  await fs.mkdir(PDF_DIR, { recursive: true });
-  await fs.writeFile(pdfPath(id), Buffer.from(await file.arrayBuffer()));
+  await writePdf(id, Buffer.from(await file.arrayBuffer()));
 
   let notFound = false;
   const updated = await updateState((state) => {
@@ -78,7 +70,7 @@ export async function DELETE(
   ctx: { params: Promise<{ id: string }> }
 ) {
   const { id } = await ctx.params;
-  await fs.rm(pdfPath(id), { force: true });
+  await deletePdf(id);
 
   const updated = await updateState((state) => {
     const a = state.articles.find((x) => x.id === id);

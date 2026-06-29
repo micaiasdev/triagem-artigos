@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseArticles, parseCriteria } from "@/lib/spreadsheet";
-import { saveState } from "@/lib/store";
-import type { AppState } from "@/lib/types";
+import { clearAllPdfs, saveState, writePdf } from "@/lib/store";
+import type { AppState, Criterion } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,18 +19,28 @@ export async function POST(req: Request) {
 
   const articlesFile = form.get("articles");
   const criteriaFile = form.get("criteria");
-  if (!(articlesFile instanceof File) || !(criteriaFile instanceof File)) {
+  const pdfFiles = form
+    .getAll("pdfs")
+    .filter((f): f is File => f instanceof File);
+
+  if (!(articlesFile instanceof File)) {
     return NextResponse.json(
-      { error: "Envie os dois arquivos: planilha de artigos e planilha de critérios." },
+      { error: "Envie a planilha de artigos." },
       { status: 400 }
     );
   }
 
   let articlesRes;
-  let criteriaRes;
+  let criteria: Criterion[] = [];
+  const warnings: string[] = [];
   try {
     articlesRes = parseArticles(Buffer.from(await articlesFile.arrayBuffer()));
-    criteriaRes = parseCriteria(Buffer.from(await criteriaFile.arrayBuffer()));
+    warnings.push(...articlesRes.warnings);
+    if (criteriaFile instanceof File) {
+      const cr = parseCriteria(Buffer.from(await criteriaFile.arrayBuffer()));
+      criteria = cr.criteria;
+      warnings.push(...cr.warnings);
+    }
   } catch (e) {
     return NextResponse.json(
       { error: "Falha ao ler as planilhas: " + (e as Error).message },
@@ -43,20 +53,41 @@ export async function POST(req: Request) {
       {
         error:
           "Nenhum artigo válido encontrado. Verifique se há as colunas 'title' e 'abstract'.",
-        warnings: articlesRes.warnings,
+        warnings,
       },
       { status: 400 }
     );
   }
-  if (criteriaRes.criteria.length === 0) {
-    return NextResponse.json(
-      {
-        error:
-          "Nenhum critério válido encontrado. Verifique as colunas 'code', 'type' (inclusao/exclusao) e 'description'.",
-        warnings: criteriaRes.warnings,
-      },
-      { status: 400 }
-    );
+
+  // Mescla critérios referenciados na planilha (reconstruídos) que não estão no catálogo.
+  const haveCodes = new Set(criteria.map((c) => c.code));
+  for (const rc of articlesRes.referencedCriteria) {
+    if (!haveCodes.has(rc.code)) {
+      criteria.push(rc);
+      haveCodes.add(rc.code);
+    }
+  }
+
+  // Nova importação = dataset novo: limpa PDFs antigos antes de anexar os desta importação.
+  await clearAllPdfs();
+
+  let attached = 0;
+  if (pdfFiles.length > 0) {
+    const byName = new Map<string, File>();
+    for (const f of pdfFiles) byName.set((f.name || "").toLowerCase(), f);
+
+    for (const a of articlesRes.articles) {
+      const fname = articlesRes.pdfFileNames[a.id];
+      if (!fname) continue;
+      const f = byName.get(fname.toLowerCase());
+      if (f) {
+        await writePdf(a.id, Buffer.from(await f.arrayBuffer()));
+        a.pdfName = fname;
+        attached++;
+      } else {
+        warnings.push(`PDF "${fname}" não foi enviado na lista.`);
+      }
+    }
   }
 
   const now = new Date().toISOString();
@@ -64,9 +95,9 @@ export async function POST(req: Request) {
     createdAt: now,
     updatedAt: now,
     sourceArticlesName: articlesFile.name,
-    sourceCriteriaName: criteriaFile.name,
+    sourceCriteriaName: criteriaFile instanceof File ? criteriaFile.name : "",
     articles: articlesRes.articles,
-    criteria: criteriaRes.criteria,
+    criteria,
   };
   await saveState(state);
 
@@ -75,6 +106,7 @@ export async function POST(req: Request) {
     articles: state.articles.length,
     inclusion: state.criteria.filter((c) => c.type === "inclusion").length,
     exclusion: state.criteria.filter((c) => c.type === "exclusion").length,
-    warnings: [...articlesRes.warnings, ...criteriaRes.warnings],
+    pdfsAttached: attached,
+    warnings: warnings.slice(0, 20),
   });
 }

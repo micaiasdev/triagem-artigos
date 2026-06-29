@@ -12,6 +12,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   RotateCcw,
+  Save,
   SkipForward,
   SlidersHorizontal,
   Star,
@@ -57,6 +58,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
   const [uploading, setUploading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
 
   const current = articles[index];
 
@@ -481,6 +483,38 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
           >
             <FileDown className="h-4 w-4" /> CSV
           </a>
+          <div className="relative">
+            <button
+              onClick={() => setSaveMenuOpen((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <Save className="h-4 w-4" /> Salvar
+            </button>
+            {saveMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setSaveMenuOpen(false)}
+                />
+                <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                  <a
+                    href="/api/project?pdfs=1"
+                    onClick={() => setSaveMenuOpen(false)}
+                    className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
+                  >
+                    Com PDFs (.zip)
+                  </a>
+                  <a
+                    href="/api/project?pdfs=0"
+                    onClick={() => setSaveMenuOpen(false)}
+                    className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
+                  >
+                    Sem PDFs (.json)
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
           <button
             onClick={() => setManagerOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
