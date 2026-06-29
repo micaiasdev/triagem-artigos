@@ -7,6 +7,10 @@ import {
   ChevronRight,
   FileDown,
   Loader2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   RotateCcw,
   SkipForward,
   SlidersHorizontal,
@@ -51,6 +55,8 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [stage, setStage] = useState<Stage>("triage");
   const [uploading, setUploading] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
 
   const current = articles[index];
 
@@ -501,32 +507,47 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
       {/* Corpo */}
       <div className="flex min-h-0 flex-1">
         {/* Sidebar */}
-        <aside className="hidden w-80 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col dark:border-slate-800 dark:bg-slate-900">
-          <ArticleList
-            items={filtered}
-            currentId={current.id}
-            onSelect={setIndex}
-            filter={filter}
-            setFilter={setFilter}
-            search={search}
-            setSearch={setSearch}
-            favoritesOnly={favoritesOnly}
-            setFavoritesOnly={setFavoritesOnly}
-            dotDecision={isFt ? (a) => a.fullTextDecision : undefined}
-          />
-        </aside>
+        {!sidebarCollapsed && (
+          <aside className="hidden w-80 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col dark:border-slate-800 dark:bg-slate-900">
+            <ArticleList
+              items={filtered}
+              currentId={current.id}
+              onSelect={setIndex}
+              filter={filter}
+              setFilter={setFilter}
+              search={search}
+              setSearch={setSearch}
+              favoritesOnly={favoritesOnly}
+              setFavoritesOnly={setFavoritesOnly}
+              dotDecision={isFt ? (a) => a.fullTextDecision : undefined}
+            />
+          </aside>
+        )}
 
         {/* Painel principal */}
         <main className="flex min-w-0 flex-1 flex-col">
           {/* Navegação */}
           <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-5 py-2 dark:border-slate-800 dark:bg-slate-900">
-            <button
-              onClick={prev}
-              disabled={index === 0}
-              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              <ChevronLeft className="h-4 w-4" /> Anterior
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setSidebarCollapsed((v) => !v)}
+                title={sidebarCollapsed ? "Mostrar lista" : "Ocultar lista"}
+                className="hidden rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 md:inline-flex dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                {sidebarCollapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4" />
+                )}
+              </button>
+              <button
+                onClick={prev}
+                disabled={index === 0}
+                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                <ChevronLeft className="h-4 w-4" /> Anterior
+              </button>
+            </div>
             <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
               Artigo {index + 1} de {counts.total}
             </span>
@@ -544,11 +565,26 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
               >
                 Próximo <ChevronRight className="h-4 w-4" />
               </button>
+              <button
+                onClick={() => setPanelCollapsed((v) => !v)}
+                title={panelCollapsed ? "Mostrar painel" : "Ocultar painel"}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                {panelCollapsed ? (
+                  <PanelRightOpen className="h-4 w-4" />
+                ) : (
+                  <PanelRightClose className="h-4 w-4" />
+                )}
+              </button>
             </div>
           </div>
 
           {/* Conteúdo */}
-          <div className="grid min-h-0 flex-1 grid-rows-[1fr] gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_400px]">
+          <div
+            className={`grid min-h-0 flex-1 grid-rows-[1fr] gap-0 overflow-hidden ${
+              panelCollapsed ? "" : "lg:grid-cols-[minmax(0,1fr)_400px]"
+            }`}
+          >
             {/* Esquerda: artigo (triagem) ou full-text */}
             <section className="min-h-0 overflow-hidden border-b border-slate-200 p-5 lg:border-b-0 lg:border-r dark:border-slate-800">
               {isFt ? (
@@ -559,7 +595,8 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
             </section>
 
             {/* Direita: painel de classificação */}
-            {isFt ? (
+            {!panelCollapsed &&
+              (isFt ? (
               <FullTextPanel
                 article={current}
                 visibleCriteria={visibleFullTextCriteria}
@@ -621,7 +658,7 @@ export default function TriageScreen({ initialState }: { initialState: AppState 
                   )}
                 </div>
               </section>
-            )}
+              ))}
           </div>
         </main>
       </div>

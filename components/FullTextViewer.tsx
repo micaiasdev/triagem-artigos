@@ -21,6 +21,14 @@ export default function FullTextViewer({ article }: { article: Article }) {
         <div className="mb-2 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
           <FileText className="h-4 w-4 shrink-0" />
           <span className="truncate">{article.pdfName}</span>
+          <a
+            href={`/api/articles/${article.id}/pdf`}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto inline-flex shrink-0 items-center gap-1 text-sky-700 hover:underline dark:text-sky-400"
+          >
+            Abrir em nova aba <ExternalLink className="h-3.5 w-3.5" />
+          </a>
         </div>
         <iframe
           src={`/api/articles/${article.id}/pdf`}
